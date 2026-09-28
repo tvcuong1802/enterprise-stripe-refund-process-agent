@@ -1,0 +1,65 @@
+[project]
+name = "cmn-c1-596"
+version = "1.0.11"
+description = "Enterprise Stripe Refund Process Agent — AgentCore Template"
+requires-python = ">=3.11"
+# The framework (agenticstar-agentcore) is NOT a public-PyPI dependency; it is
+# provided by CI per repo arm — stub harness on PYTHONPATH for stub-harness-era repos,
+# or installed from the package registry for wheel-era repos (see the dual-mode
+# run-tests job in the CI configuration). Pinning it here would make `pip install -e .`
+# fail because it is not resolvable from the default index.
+dependencies = [
+    "agenticstar-agentcore[marketplace,openai]==1.0.3",
+    # The SDK is NOT a pyproject dependency. CI installs it from the private registry via
+    # ${AGENTCORE_WHEEL_SPEC}, a GROUP-level variable CoE owns, and the image installs the
+    # vendored wheel with its extras in the Dockerfile. Pinning a version here duplicates
+    # that decision and contradicts it whenever the group spec moves -- which happened on
+    # 2026-09-03 and made `uv pip install` unsolvable on seventeen repos at once.
+    "requests==2.32.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "types-requests==2.32.0.20240622",
+    "pytest==9.0.3",
+    "pytest-cov==5.0.0",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.4.4",
+    "mypy==1.10.0",
+]
+
+[build-system]
+requires = ["setuptools==68.2.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+# disallow_subclassing_any is a per-FILE flag: it fires on the module being checked, not
+# on where the base class lives, so it cannot be scoped to framework.*/shared.* via the
+# overrides below. Every src/ file subclassing FunctionNode / AgentBaseGraph / AgentState
+# -- the whole L1-direct architecture -- would trip it. Disabled globally; every other
+# strict flag (disallow_untyped_defs, disallow_any_generics, warn_return_any, ...) stays
+# on. Pattern verified on (internal reference removed).
+disallow_subclassing_any = false
+
+# The agenticstar-agentcore wheel ships no py.typed marker, so mypy cannot resolve real
+# types for framework.*/shared.* and every symbol from them is implicitly Any.
+# ignore_missing_imports IS resolved by the imported module (unlike the flag above), so
+# it can be scoped here. Checking of this template's own code is unaffected.
+[[tool.mypy.overrides]]
+module = ["framework.*", "shared.*"]
+ignore_missing_imports = true
+
+# src/schemas/state.py subclasses framework's AgentState. Because the wheel ships no
+# py.typed, AgentState resolves to Any, so mypy does not recognise the subclass as a
+# TypedDict and reports every NotRequired[...] field as [valid-type]. The declarations
+# are correct -- LangGraph reads them at runtime -- so the error is an artefact of the
+# untyped base class, not of this file. Scoped to this one module.
+[[tool.mypy.overrides]]
+module = ["src.schemas.state"]
+disable_error_code = ["valid-type"]

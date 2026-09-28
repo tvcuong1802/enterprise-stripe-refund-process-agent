@@ -1,0 +1,39 @@
+# Agent Manifest — AgentRegistry entry point
+# AgentRegistry reads every key below at ROOT level — do NOT nest them under an
+# `agent:` block. The nested shape is invisible to the registry: namespace/enabled
+# fall back to defaults and the registry key degrades to "default/unknown@latest".
+# De-nested for the root-level AgentRegistry schema gate.
+id: "CMN-C1-596"
+name: "Enterprise Stripe Refund Process Agent"
+namespace: "cmn"
+version: "1.0.11"
+enabled: true
+category: "Cat 1"
+industry: "CMN"
+
+# Base picklist pattern reference ONLY — not the inheritance target. The template
+# inherits AgentBaseGraph (L1 direct); see docs/02_design.md.
+base_type: "AgentBaseGraph"
+
+# Entry point — ONE dotted import path (module.Class), not a split module:/class:.
+# AgentRegistry does manifest["class"].rsplit(".", 1) to resolve it. Verified to import
+# and to subclass AgentBaseGraph.
+class: "src.graph.graph.Graph"
+
+# Security — highest TrustLevel declared by this template's nodes.
+required_trust_level: "VERIFIED_EXTERNAL"
+
+# Compile-time gates — declare every secret/extra actually used, or the agent loads
+# with those checks silently disabled.
+requires:
+  # Every key here is read via ctx.secrets.require() in src/. An undeclared secret is
+  # never provisioned, so build_llm_client() cannot construct a client and the agent
+  # answers from its no-model path while still reporting success -- the expensive shape.
+  secrets:
+    - AZURE_OPENAI_API_KEY
+    - AZURE_OPENAI_ENDPOINT
+    - AZURE_OPENAI_DEPLOYMENT
+  # `requires.extras` is the REGISTRY namespace, validated against
+  # shared.utils.extras_map -- not the packaging extras of pyproject.toml.
+  extras:
+    - openai
